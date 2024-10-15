@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import localDB from './db';
-import UpdateDocument from './updateDocument';
 
 const ShowDocuments = () => {
     const [docs, setDocs] = useState([]);
-    const [currentPage, setCurrentPage] = useState(1); // Tracks the current page
-    const [docsPerPage] = useState(20); // Number of docs per page
+    const [selectedDocId, setSelectedDocId] = useState(null); // Track selected document
 
     useEffect(() => {
         const fetchDocs = async () => {
@@ -19,23 +17,71 @@ const ShowDocuments = () => {
         fetchDocs();
     }, []);
 
-    const handleSubmit = (event) => {
-        event.preventDefault();
+    // Handle input change for editable fields
+    const handleInputChange = (e, docId, field) => {
+        const updatedDocs = docs.map(doc => {
+            if (doc._id === docId) {
+                return { ...doc, [field]: e.target.value }; // Update the specific field
+            }
+            return doc;
+        });
+        setDocs(updatedDocs); // Update state with new values
     };
 
+    // Handle document update
+    const handleUpdate = async () => {
+        if (!selectedDocId) {
+            alert('Please select a document to update!');
+            return;
+        }
 
+        const docToUpdate = docs.find(doc => doc._id === selectedDocId);
+        if (!docToUpdate) {
+            alert('Document could not be found!');
+            return;
+        }
 
-    // Divide documents into pages as list was too long
-    const indexOfLastDoc = currentPage * docsPerPage;
-    const indexOfFirstDoc = indexOfLastDoc - docsPerPage;
-    const currentDocs = docs.slice(indexOfFirstDoc, indexOfLastDoc);
-    const paginate = (pageNumber) => setCurrentPage(pageNumber);
-    const totalPages = Math.ceil(docs.length / docsPerPage);
+        try {
+            await localDB.put(docToUpdate); // Save updated document to CouchDB
+            alert('Document updated successfully!');
+        } catch (err) {
+            console.error('Error updating document:', err);
+            alert('Failed to update document');
+        }
+    };
+
+    // Handle document delete
+    const handleDelete = async () => {
+        if (!selectedDocId) {
+            alert('Please select a document to delete!');
+            return;
+        }
+
+        const docToDelete = docs.find(doc => doc._id === selectedDocId);
+        if (!docToDelete) {
+            alert('Document could not be found!');
+            return;
+        }
+
+        try {
+            await localDB.remove(docToDelete._id, docToDelete._rev);
+            alert('Document deleted successfully!');
+
+            // Update the document list in state
+            setDocs(docs.filter(doc => doc._id !== selectedDocId));
+        } catch (err) {
+            console.error('Error deleting document:', err);
+            alert('Failed to delete document');
+        }
+    };
 
     return (
         <div>
-            <form onSubmit={handleSubmit}>
+            <form>
                 <h3>Below is a list of Football Teams!</h3>
+                <h4>Select a team to Update or Delete</h4>
+                <button type="button" onClick={handleDelete}>Delete</button>
+                <button type="button" onClick={handleUpdate}>Update</button>
                 <table className="dataTable">
                     <thead>
                         <tr>
@@ -52,39 +98,82 @@ const ShowDocuments = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {currentDocs.map(doc => (
+                        {docs.map(doc => (
                             <tr key={doc._id}>
-                                <td><input type="radio" name="id_buttons" id={doc._id}></input></td>
-                                <td>{doc.name}</td>
-                                <td>{doc.domestic_competition_id}</td>
-                                <td>{doc.squad_size}</td>
-                                <td>{doc.average_age}</td>
-                                <td>{doc.foreigners_number}</td>
-                                <td>{doc.foreigners_percentage}</td>
-                                <td>{doc.stadium_name}</td>
-                                <td>{doc.stadium_seats}</td>
-                                <td>{doc.net_transfer_record}</td>
+                                <td>
+                                    <input
+                                        type="radio"
+                                        name="id_buttons"
+                                        id={doc._id}
+                                        onChange={() => setSelectedDocId(doc._id)} // Track selected doc
+                                    />
+                                </td>
+                                <td>
+                                    <input
+                                        type="text"
+                                        value={doc.name}
+                                        onChange={(e) => handleInputChange(e, doc._id, 'name')}
+                                    />
+                                </td>
+                                <td>
+                                    <input
+                                        type="text"
+                                        value={doc.domestic_competition_id}
+                                        onChange={(e) => handleInputChange(e, doc._id, 'domestic_competition_id')}
+                                    />
+                                </td>
+                                <td>
+                                    <input
+                                        type="number"
+                                        value={doc.squad_size}
+                                        onChange={(e) => handleInputChange(e, doc._id, 'squad_size')}
+                                    />
+                                </td>
+                                <td>
+                                    <input
+                                        type="number"
+                                        value={doc.average_age}
+                                        onChange={(e) => handleInputChange(e, doc._id, 'average_age')}
+                                    />
+                                </td>
+                                <td>
+                                    <input
+                                        type="number"
+                                        value={doc.foreigners_number}
+                                        onChange={(e) => handleInputChange(e, doc._id, 'foreigners_number')}
+                                    />
+                                </td>
+                                <td>
+                                    <input
+                                        type="number"
+                                        value={doc.foreigners_percentage}
+                                        onChange={(e) => handleInputChange(e, doc._id, 'foreigners_percentage')}
+                                    />
+                                </td>
+                                <td>
+                                    <input
+                                        type="text"
+                                        value={doc.stadium_name}
+                                        onChange={(e) => handleInputChange(e, doc._id, 'stadium_name')}
+                                    />
+                                </td>
+                                <td>
+                                    <input
+                                        type="number"
+                                        value={doc.stadium_seats}
+                                        onChange={(e) => handleInputChange(e, doc._id, 'stadium_seats')}
+                                    />
+                                </td>
+                                <td>
+                                    <input
+                                        type="text"
+                                        value={doc.net_transfer_record}
+                                        onChange={(e) => handleInputChange(e, doc._id, 'net_transfer_record')}
+                                    />
+                                </td>
                             </tr>
                         ))}
-                        {/* Arrows for navigating pages */}
-                <div className="pagination">
-                    <button 
-                        onClick={() => paginate(currentPage - 1)} 
-                        disabled={currentPage === 1}
-                        aria-label="Previous">
-                        &larr; {/* Left arrow */}
-                    </button>
-
-                    <button 
-                        onClick={() => paginate(currentPage + 1)} 
-                        disabled={currentPage === totalPages}
-                        aria-label="Next">
-                        &rarr; {/* Right arrow */}
-                    </button>
-                </div>
                     </tbody>
-                    <button>Update</button>
-                    <button>Delete</button>
                 </table>
             </form>
         </div>
